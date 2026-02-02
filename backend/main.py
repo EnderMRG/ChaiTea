@@ -34,9 +34,9 @@ import torch
 import json
 import pathlib
 
-# Fix for YOLOv5 models trained on Linux (e.g. Colab) being loaded on Windows
-temp = pathlib.PosixPath
-pathlib.PosixPath = pathlib.WindowsPath
+# Fix for YOLOv5 models trained on Windows being loaded on Linux
+temp = pathlib.WindowsPath
+pathlib.WindowsPath = pathlib.PosixPath
 
 # Load environment variables first
 load_dotenv()
