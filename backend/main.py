@@ -180,13 +180,60 @@ app.add_middleware(
 )
 
 
-# Load models
-leaf_model = joblib.load("models/tea_leaf_model.pkl")
-pest_model = joblib.load("models/pest_risk_model.pkl")
-drought_model = joblib.load("models/drought_risk_model.pkl")
-feature_names = joblib.load("models/model1_features.pkl")
-price_model = joblib.load("models/tea_price_model.pkl")
-class_labels = joblib.load("models/class_labels.pkl")
+# Load models with error handling for missing files
+try:
+    leaf_model = joblib.load("models/tea_leaf_model.pkl")
+except FileNotFoundError:
+    print("⚠️ tea_leaf_model.pkl not found, using None")
+    leaf_model = None
+except Exception as e:
+    print(f"⚠️ Failed to load tea_leaf_model.pkl: {e}")
+    leaf_model = None
+
+try:
+    pest_model = joblib.load("models/pest_risk_model.pkl")
+except FileNotFoundError:
+    print("⚠️ pest_risk_model.pkl not found, using None")
+    pest_model = None
+except Exception as e:
+    print(f"⚠️ Failed to load pest_risk_model.pkl: {e}")
+    pest_model = None
+
+try:
+    drought_model = joblib.load("models/drought_risk_model.pkl")
+except FileNotFoundError:
+    print("⚠️ drought_risk_model.pkl not found, using None")
+    drought_model = None
+except Exception as e:
+    print(f"⚠️ Failed to load drought_risk_model.pkl: {e}")
+    drought_model = None
+
+try:
+    feature_names = joblib.load("models/model1_features.pkl")
+except FileNotFoundError:
+    print("⚠️ model1_features.pkl not found, using None")
+    feature_names = None
+except Exception as e:
+    print(f"⚠️ Failed to load model1_features.pkl: {e}")
+    feature_names = None
+
+try:
+    price_model = joblib.load("models/tea_price_model.pkl")
+except FileNotFoundError:
+    print("⚠️ tea_price_model.pkl not found, using None")
+    price_model = None
+except Exception as e:
+    print(f"⚠️ Failed to load tea_price_model.pkl: {e}")
+    price_model = None
+
+try:
+    class_labels = joblib.load("models/class_labels.pkl")
+except FileNotFoundError:
+    print("⚠️ class_labels.pkl not found, using None")
+    class_labels = None
+except Exception as e:
+    print(f"⚠️ Failed to load class_labels.pkl: {e}")
+    class_labels = None
 
 # Load YOLOv5 object detection model for disease localization
 try:
