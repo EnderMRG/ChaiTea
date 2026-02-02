@@ -13,7 +13,7 @@ firebase-admin==6.2.0
 google-generativeai==0.8.0
 python-dotenv==1.0.0
 openpyxl==3.1.2
-opencv-python-headless
+opencv-python-headless==4.8.1.78
 reportlab
 torch>=2.0.0
 torchvision>=0.15.0

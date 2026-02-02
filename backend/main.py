@@ -1,3 +1,16 @@
+# MUST BE FIRST - numpy compatibility layer before ANY imports that use numpy
+import sys
+try:
+    import numpy._core
+except ImportError:
+    try:
+        import numpy.core
+        # Create compatibility mapping for cv2 and other packages
+        sys.modules['numpy._core'] = sys.modules['numpy.core']
+        sys.modules['numpy._core.multiarray'] = sys.modules['numpy.core.multiarray']
+    except (ImportError, AttributeError, KeyError):
+        pass
+
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -8,22 +21,7 @@ import pandas as pd
 import io
 import google.generativeai as genai
 from dotenv import load_dotenv
-
-# Compatibility layer for numpy versions and pickled models
-# Handle both numpy.core (old) and numpy._core (new) naming
-try:
-    import numpy._core
-except ImportError:
-    try:
-        import numpy.core
-        # Create compatibility mapping
-        import sys
-        sys.modules['numpy._core'] = sys.modules['numpy.core']
-    except ImportError:
-        pass
 import os
-import pandas as pd
-import numpy as np
 import re
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
