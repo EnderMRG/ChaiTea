@@ -188,6 +188,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ===== HEALTH CHECK ENDPOINTS =====
+@app.get("/")
+def health_check():
+    """Root endpoint for health checks and port binding verification"""
+    return {
+        "status": "ok",
+        "service": "CHAI-NET Backend",
+        "timestamp": datetime.utcnow().isoformat(),
+        "message": "Backend is running and ready to receive requests"
+    }
+
+@app.head("/")
+def health_check_head():
+    """HEAD request support for port detection"""
+    return {"status": "ok"}
+
+@app.get("/health")
+def detailed_health():
+    """Detailed health check with model status"""
+    return {
+        "status": "healthy",
+        "models": {
+            "leaf_classifier": "loaded" if leaf_model else "failed",
+            "pest_risk": "loaded" if pest_model else "failed",
+            "drought_risk": "loaded" if drought_model else "failed",
+            "price_forecast": "loaded" if price_model else "failed",
+            "yolo_detection": "loaded" if yolo_model else "failed"
+        },
+        "firebase": "connected",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
 
 # Load models with error handling for missing files
 try:
