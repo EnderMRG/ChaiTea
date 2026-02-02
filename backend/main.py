@@ -8,6 +8,15 @@ import pandas as pd
 import io
 import google.generativeai as genai
 from dotenv import load_dotenv
+
+# Fix for numpy._core compatibility issues with pickled models
+try:
+    import numpy._core as np_core
+except ImportError:
+    try:
+        import numpy.core as np_core
+    except ImportError:
+        np_core = np
 import os
 import pandas as pd
 import numpy as np
@@ -182,30 +191,42 @@ app.add_middleware(
 
 # Load models with error handling for missing files
 try:
-    leaf_model = joblib.load("models/tea_leaf_model.pkl")
+    print("📦 Loading tea_leaf_model.pkl...")
+    leaf_model = joblib.load("models/tea_leaf_model.pkl", mmap_mode='r')
+    print("✅ tea_leaf_model.pkl loaded successfully")
 except FileNotFoundError:
     print("⚠️ tea_leaf_model.pkl not found, using None")
     leaf_model = None
 except Exception as e:
     print(f"⚠️ Failed to load tea_leaf_model.pkl: {e}")
+    import traceback
+    traceback.print_exc()
     leaf_model = None
 
 try:
-    pest_model = joblib.load("models/pest_risk_model.pkl")
+    print("📦 Loading pest_risk_model.pkl...")
+    pest_model = joblib.load("models/pest_risk_model.pkl", mmap_mode='r')
+    print("✅ pest_risk_model.pkl loaded successfully")
 except FileNotFoundError:
     print("⚠️ pest_risk_model.pkl not found, using None")
     pest_model = None
 except Exception as e:
     print(f"⚠️ Failed to load pest_risk_model.pkl: {e}")
+    import traceback
+    traceback.print_exc()
     pest_model = None
 
 try:
-    drought_model = joblib.load("models/drought_risk_model.pkl")
+    print("📦 Loading drought_risk_model.pkl...")
+    drought_model = joblib.load("models/drought_risk_model.pkl", mmap_mode='r')
+    print("✅ drought_risk_model.pkl loaded successfully")
 except FileNotFoundError:
     print("⚠️ drought_risk_model.pkl not found, using None")
     drought_model = None
 except Exception as e:
     print(f"⚠️ Failed to load drought_risk_model.pkl: {e}")
+    import traceback
+    traceback.print_exc()
     drought_model = None
 
 try:
@@ -237,12 +258,15 @@ except Exception as e:
 
 # Load YOLOv5 object detection model for disease localization
 try:
+    print("📦 Loading YOLOv5 model...")
     yolo_model = torch.hub.load('ultralytics/yolov5', 'custom', path='models/best.pt', force_reload=False)
     yolo_model.conf = 0.25  # Confidence threshold
     yolo_model.iou = 0.45   # NMS IOU threshold
     print("✅ YOLOv5 disease detection model loaded successfully")
 except Exception as e:
     print(f"⚠️ YOLOv5 model loading failed: {e}")
+    import traceback
+    traceback.print_exc()
     yolo_model = None
 
 index_to_label = {v: k for k, v in class_labels.items()}
