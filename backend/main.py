@@ -9,14 +9,18 @@ import io
 import google.generativeai as genai
 from dotenv import load_dotenv
 
-# Fix for numpy._core compatibility issues with pickled models
+# Compatibility layer for numpy versions and pickled models
+# Handle both numpy.core (old) and numpy._core (new) naming
 try:
-    import numpy._core as np_core
+    import numpy._core
 except ImportError:
     try:
-        import numpy.core as np_core
+        import numpy.core
+        # Create compatibility mapping
+        import sys
+        sys.modules['numpy._core'] = sys.modules['numpy.core']
     except ImportError:
-        np_core = np
+        pass
 import os
 import pandas as pd
 import numpy as np
