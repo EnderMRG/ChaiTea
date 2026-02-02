@@ -50,4 +50,5 @@ build/
 
 # Mock IoT
 mock-iot/node_modules/
-serviceAccountKey.json
+mock-iot/serviceAccountKey.json
+backend/serviceAccountKey.json
