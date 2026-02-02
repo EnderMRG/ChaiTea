@@ -29,8 +29,8 @@ ChaiTea/
 ├── backend/                 # FastAPI backend server
 │   ├── main.py             # Core API logic & AI integration
 │   ├── requirements.txt    # Python dependencies
-│   ├── models/             # ML models (PKL files)
-│   └── serviceAccountKey.json  # Firebase credentials (Ignored)
+│   ├── .env                # Environment variables (gitignored)
+│   └── models/             # ML models (PKL files)
 ├── frontend/               # Next.js web application
 │   ├── app/                # App Router pages
 │   ├── components/         # UI Components
@@ -52,10 +52,18 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-# Place your 'serviceAccountKey.json' in /backend
-# Create .env with GEMINI_API_KEY=...
+
+# Copy .env.example to .env and fill in your credentials
+cp .env.example .env
+# Edit .env with your Firebase credentials and Gemini API key
+
 python -m uvicorn main:app --reload
 ```
+
+**Environment Variables Required** (in `backend/.env`):
+- `GEMINI_API_KEY`: Your Google Gemini API key
+- `DEMO_EMAIL`: Demo account email (default: demo@chaitea.com)
+- Firebase Service Account credentials (see `.env.example` for all required fields)
 
 ### 2. Frontend Setup
 ```bash

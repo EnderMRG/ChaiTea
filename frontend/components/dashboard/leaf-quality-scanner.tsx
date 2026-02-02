@@ -19,6 +19,7 @@ import {
   Line,
 } from 'recharts';
 import { Upload, CheckCircle, AlertCircle, Leaf, TrendingUp, Lightbulb } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 
 
 const diseaseSeverityMap: Record<string, number> = {
@@ -65,13 +66,13 @@ export function parseLeafAIRecommendations(recs: string[]): LeafAIRec[] {
     const lower = cleaned.toLowerCase();
     const priority: 'high' | 'medium' | 'low' =
       lower.includes('immediate') ||
-      lower.includes('confirm') ||
-      lower.includes('fungicide')
+        lower.includes('confirm') ||
+        lower.includes('fungicide')
         ? 'high'
         : lower.includes('optimize') ||
           lower.includes('review')
-        ? 'medium'
-        : 'low';
+          ? 'medium'
+          : 'low';
 
     const rec: LeafAIRec = {
       title: titlePart.trim(),
@@ -116,16 +117,17 @@ export default function LeafQualityScanner() {
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [recentScansState, setRecentScansState] = useState<any[]>([]);
+  const [yoloDetections, setYoloDetections] = useState<any[] | null>(null);
 
   const totalScans = recentScansState.length;
 
   const latestScan = recentScansState[0];
 
   const avgGrade = latestScan
-  ? latestScan.grade === 'diseased'
-    ? latestScan.cnn_prediction ?? 'Disease Detected'
-    : 'Healthy'
-  : '--';
+    ? latestScan.grade === 'diseased'
+      ? latestScan.cnn_prediction ?? 'Disease Detected'
+      : 'Healthy'
+    : '--';
 
   const qualityScore = latestScan
     ? `${latestScan.confidence}%`
@@ -135,13 +137,13 @@ export default function LeafQualityScanner() {
     totalScans === 0
       ? '--'
       : `${Math.round(
-          (recentScansState.filter(
-            (s) => s.grade !== 'healthy'
-          ).length /
-            totalScans) *
-            100
-        )}%`;
-        
+        (recentScansState.filter(
+          (s) => s.grade !== 'healthy'
+        ).length /
+          totalScans) *
+        100
+      )}%`;
+
 
   const handleUpload = async (file: File) => {
     try {
@@ -150,16 +152,18 @@ export default function LeafQualityScanner() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('http://localhost:8000/api/leaf-quality', {
-        method: 'POST',
-        body: formData,
-      });
+      const data = await apiClient.postFormData('/api/leaf-quality', formData);
 
-      if (!res.ok) throw new Error('Inference failed');
-
-      const data = await res.json();
       console.log('LEAF API RESPONSE:', data);
       setResult(data);
+
+      // Store YOLO detections if available
+      if (data.yolo_detections && data.yolo_detections.length > 0) {
+        setYoloDetections(data.yolo_detections);
+        console.log('🎯 YOLO Detections:', data.yolo_detections);
+      } else {
+        setYoloDetections(null);
+      }
 
       const confidencePercent = Math.round(data.confidence * 100);
 
@@ -170,18 +174,18 @@ export default function LeafQualityScanner() {
         timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
         location: 'Uploaded Sample',
         imageId: file.name,
-            
+
         grade: normalizedGrade,                  // "diseased" | "healthy"
         disease_type: data.disease_type ?? null, // 👈 ADD THIS
         decision_source: data.decision_source,   // 👈 ADD THIS
         cnn_prediction: data.cnn_prediction?.toLowerCase() ?? null,
-            
+
         confidence: confidencePercent,
-            
+
         color: normalizedGrade === 'healthy'
           ? '#10b981'
           : '#ef4444',
-            
+
         issues:
           normalizedGrade === 'healthy'
             ? []
@@ -192,7 +196,7 @@ export default function LeafQualityScanner() {
 
       console.log("🧾 FRONTEND newScan object:", newScan);
 
-      
+
 
       setRecentScansState((prev) => [newScan, ...prev]);
     } catch (err) {
@@ -207,24 +211,24 @@ export default function LeafQualityScanner() {
 
   const conditionMetrics = latestScan
     ? [
-        {
-          metric: 'Color Uniformity',
-          score: Math.max(40, 100 - severity),
-        },
-        {
-          metric: 'Surface Integrity',
-          score: Math.max(35, 95 - severity),
-        },
-        {
-          metric: 'Disease Presence',
-          score: severity,
-        },
-      ]
+      {
+        metric: 'Color Uniformity',
+        score: Math.max(40, 100 - severity),
+      },
+      {
+        metric: 'Surface Integrity',
+        score: Math.max(35, 95 - severity),
+      },
+      {
+        metric: 'Disease Presence',
+        score: severity,
+      },
+    ]
     : [];
 
 
 
-  
+
 
   return (
     <div className="space-y-6">
@@ -247,7 +251,7 @@ export default function LeafQualityScanner() {
               <div className="h-16 w-16 rounded-lg bg-primary/10 flex items-center justify-center">
                 <Leaf className="h-8 w-8 text-primary" />
               </div>
-          
+
               {/* Text */}
               <div>
                 <h3 className="text-lg font-semibold text-foreground">
@@ -303,7 +307,7 @@ export default function LeafQualityScanner() {
           </Button>
         </div>
       </Card>
-          
+
 
 
       {/* Summary Cards */}
@@ -312,13 +316,12 @@ export default function LeafQualityScanner() {
           <p className="text-sm text-muted-foreground">Leaf Health Status</p>
 
           <p
-            className={`mt-2 text-2xl font-bold ${
-              latestScan?.grade === 'healthy'
-                ? 'text-green-600'
-                : latestScan
+            className={`mt-2 text-2xl font-bold ${latestScan?.grade === 'healthy'
+              ? 'text-green-600'
+              : latestScan
                 ? 'text-red-600'
                 : 'text-muted-foreground'
-            }`}
+              }`}
           >
             {latestScan
               ? latestScan.grade === 'healthy'
@@ -330,7 +333,7 @@ export default function LeafQualityScanner() {
 
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Latest Result</p>
-                    
+
           <p className="text-2xl font-bold text-foreground mt-2 capitalize">
             {!latestScan
               ? '--'
@@ -340,7 +343,7 @@ export default function LeafQualityScanner() {
                   ? latestScan.disease_type
                   : 'Disease Detected'}
           </p>
-            
+
           {latestScan?.decision_source && (
             <p className="text-xs text-muted-foreground mt-1">
               Decision source: {latestScan.decision_source}
@@ -372,7 +375,7 @@ export default function LeafQualityScanner() {
           <h3 className="font-semibold text-foreground mb-4">
             Disease Confidence
           </h3>
-                    
+
           <div className="relative w-40 h-40">
             <svg className="w-full h-full rotate-[-90deg]">
               {/* Background ring */}
@@ -402,7 +405,7 @@ export default function LeafQualityScanner() {
                 strokeLinecap="round"
               />
             </svg>
-              
+
             {/* Center text */}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <p className="text-3xl font-bold text-foreground">
@@ -413,7 +416,7 @@ export default function LeafQualityScanner() {
               </p>
             </div>
           </div>
-              
+
           {/* Interpretation */}
           <p className="mt-4 text-sm font-medium text-green-600">
             {latestScan?.confidence > 85
@@ -421,7 +424,7 @@ export default function LeafQualityScanner() {
               : 'Moderate Confidence Prediction'}
           </p>
         </Card>
-            
+
 
         {/* Quality Metrics */}
         <Card className="p-6">
@@ -460,18 +463,18 @@ export default function LeafQualityScanner() {
                 tick={{
                   fill: '#374151',
                   fontSize: 17,
-                  dy: 0,        
+                  dy: 0,
                 }}
               />
 
               {/* No hover noise */}
               <Tooltip cursor={false} />
-        
+
               <Bar
                 dataKey="score"
                 fill="#34a853"
-                barSize={35}                
-                radius={[4, 4, 4, 4]}       
+                barSize={35}
+                radius={[4, 4, 4, 4]}
                 background={{
                   fill: '#f3f4f6',
                   radius: 4,
@@ -479,12 +482,12 @@ export default function LeafQualityScanner() {
               />
             </BarChart>
           </ResponsiveContainer>
-        </Card>         
+        </Card>
 
-        
+
       </div>
 
-      
+
 
       {/* AI Recommendations */}
       <Card className="p-6 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
@@ -520,20 +523,19 @@ export default function LeafQualityScanner() {
                     <p className="font-semibold text-foreground">
                       Recommendation {idx + 1}
                     </p>
-              
+
                     <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        rec.priority === 'high'
-                          ? 'bg-red-100 text-red-700'
-                          : rec.priority === 'medium'
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${rec.priority === 'high'
+                        ? 'bg-red-100 text-red-700'
+                        : rec.priority === 'medium'
                           ? 'bg-yellow-100 text-yellow-700'
                           : 'bg-blue-100 text-blue-700'
-                      }`}
+                        }`}
                     >
                       {rec.priority}
                     </span>
                   </div>
-                    
+
                   {/* Bold title */}
                   <p className="font-medium text-foreground">
                     <span className="font-semibold">
@@ -541,7 +543,7 @@ export default function LeafQualityScanner() {
                     </span>
                     :
                   </p>
-                    
+
                   {/* Description */}
                   {rec.description && (
                     <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
@@ -552,8 +554,94 @@ export default function LeafQualityScanner() {
               )
             )}
           </div>
-        )}       
+        )}
       </Card>
+
+      {/* YOLO Object Detection Results */}
+      {yoloDetections && yoloDetections.length > 0 && (
+        <Card className="p-6 border-orange-200 dark:border-orange-900/30 bg-gradient-to-br from-orange-50 dark:from-orange-900/10 to-transparent">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+            <h3 className="font-semibold text-foreground text-lg">
+              Disease Detection (Object Detection Model)
+            </h3>
+          </div>
+
+          <p className="text-sm text-muted-foreground mb-4">
+            YOLOv5 detected {yoloDetections.length} disease region{yoloDetections.length > 1 ? 's' : ''} in the leaf image
+          </p>
+
+          <div className="space-y-3">
+            {yoloDetections.map((detection, idx) => (
+              <div
+                key={idx}
+                className="rounded-lg border border-orange-200 dark:border-orange-900/50 bg-white dark:bg-background p-4"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                      <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                        {idx + 1}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground capitalize">
+                        {detection.disease_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Region {idx + 1}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                      {Math.round(detection.confidence * 100)}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">Confidence</p>
+                  </div>
+                </div>
+
+                {/* Bounding Box Info */}
+                <div className="grid grid-cols-2 gap-2 mt-3 p-3 bg-muted/50 rounded">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Location</p>
+                    <p className="text-sm font-mono text-foreground">
+                      ({detection.bbox.xmin}, {detection.bbox.ymin})
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Size</p>
+                    <p className="text-sm font-mono text-foreground">
+                      {detection.bbox.xmax - detection.bbox.xmin} × {detection.bbox.ymax - detection.bbox.ymin}px
+                    </p>
+                  </div>
+                </div>
+
+                {/* Severity indicator based on confidence */}
+                <div className="mt-3 flex items-center gap-2">
+                  <div className={`h-2 flex-1 rounded-full ${detection.confidence > 0.8 ? 'bg-red-500' :
+                    detection.confidence > 0.5 ? 'bg-orange-500' :
+                      'bg-yellow-500'
+                    }`} style={{ width: `${detection.confidence * 100}%` }} />
+                  <span className={`text-xs font-semibold ${detection.confidence > 0.8 ? 'text-red-600 dark:text-red-400' :
+                    detection.confidence > 0.5 ? 'text-orange-600 dark:text-orange-400' :
+                      'text-yellow-600 dark:text-yellow-400'
+                    }`}>
+                    {detection.confidence > 0.8 ? 'High' :
+                      detection.confidence > 0.5 ? 'Medium' : 'Low'} Severity
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-sm text-foreground">
+              <span className="font-semibold">💡 Note:</span> This model uses YOLOv5 object detection to identify and localize disease regions on the leaf surface. The bounding boxes show the exact location of detected diseases.
+            </p>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

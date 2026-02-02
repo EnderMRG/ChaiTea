@@ -8,9 +8,11 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Leaf, Eye, EyeOff, Mail, Lock, Chrome } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { signInWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,18 +36,31 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = () => {
-    setEmail('farmer@chai-net.com');
-    setPassword('demo@123');
+  const handleDemoLogin = async () => {
+    setIsLoading(true);
+    setError('');
+
+    // Set demo mode flag so they land on demo dashboard
+    localStorage.setItem('chai_demo_mode', 'true');
+
+    // Auto-trigger Google sign-in
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      setError('Failed to sign in. Please try again.');
+      setIsLoading(false);
+    }
   };
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     setIsLoading(true);
-    // In a real app, this would trigger Google OAuth flow
-    setTimeout(() => {
-      router.push('/dashboard');
+    setError('');
+    try {
+      await signInWithGoogle();
+    } catch (error: any) {
+      setError(error.message || 'Failed to sign in with Google');
       setIsLoading(false);
-    }, 800);
+    }
   };
 
   return (
@@ -81,107 +96,19 @@ export default function LoginPage() {
             <form onSubmit={handleLogin} className="space-y-6">
               {/* Error Message */}
               {error && (
-                <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40">
-                  <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+                <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-900/40">
+                  <p className="text-sm text-blue-700 dark:text-blue-400">{error}</p>
                 </div>
               )}
 
-              {/* Email Input */}
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-                  <input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-border/50 rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-colors"
-                  />
-                </div>
-              </div>
-
-              {/* Password Input */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label htmlFor="password" className="block text-sm font-medium text-foreground">
-                    Password
-                  </label>
-                  <Link href="#" className="text-xs text-primary hover:text-primary/80 transition-colors">
-                    Forgot password?
-                  </Link>
-                </div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-10 py-2.5 border border-border/50 rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Remember Me */}
-              <div className="flex items-center">
-                <input
-                  id="remember"
-                  type="checkbox"
-                  className="h-4 w-4 border border-border rounded accent-primary cursor-pointer"
-                />
-                <label htmlFor="remember" className="ml-2 text-sm text-muted-foreground cursor-pointer">
-                  Remember me on this device
-                </label>
-              </div>
-
-              {/* Login Button */}
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11 font-semibold transition-all duration-200"
-              >
-                {isLoading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                    Signing in...
-                  </div>
-                ) : (
-                  'Sign In'
-                )}
-              </Button>
-
-              {/* Divider */}
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border/40" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-card text-muted-foreground">or</span>
-                </div>
-              </div>
-
-              {/* Google Sign In */}
+              {/* Google Sign In - Primary */}
               <Button
                 type="button"
                 onClick={handleGoogleSignIn}
                 disabled={isLoading}
-                variant="outline"
-                className="w-full h-11 font-medium border border-border/50 bg-background hover:bg-muted/50 flex items-center justify-center gap-2"
+                className="w-full h-12 font-semibold bg-primary hover:bg-primary/90 text-primary-foreground flex items-center justify-center gap-3"
               >
                 <svg className="h-5 w-5" viewBox="0 0 24 24">
-                  <text x="0" y="0" className="text-xs font-bold fill-current">G</text>
                   <path
                     fill="currentColor"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -199,17 +126,18 @@ export default function LoginPage() {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                   />
                 </svg>
-                Continue with Google
+                {isLoading ? 'Signing in...' : 'Sign in with Google'}
               </Button>
 
               {/* Demo Login */}
               <Button
                 type="button"
                 onClick={handleDemoLogin}
+                disabled={isLoading}
                 variant="outline"
-                className="w-full h-11 font-medium border border-border/50 bg-transparent"
+                className="w-full h-11 font-medium border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 text-primary"
               >
-                Use Demo Account
+                🎭 Try Demo Account
               </Button>
             </form>
 
@@ -227,7 +155,7 @@ export default function LoginPage() {
           {/* Info Box */}
           <div className="mt-6 p-4 rounded-lg bg-primary/5 border border-primary/10">
             <p className="text-xs text-muted-foreground text-center">
-              Demo credentials: Use any email and password to test the dashboard. Your data is not stored.
+              <strong className="text-primary">Demo Account:</strong> Sign in with <strong>demo@chaitea.com</strong> Google account to access pre-populated demo data.
             </p>
           </div>
         </div>

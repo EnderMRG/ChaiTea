@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { MessageCircle, X, Send, Loader } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 
 interface Message {
   id: string;
@@ -15,7 +16,7 @@ interface Message {
 // Component to render message content with proper line breaks and formatting
 const MessageContent = ({ content }: { content: string }) => {
   const lines = content.split('\n');
-  
+
   return (
     <div className="space-y-1">
       {lines.map((line, idx) => {
@@ -95,23 +96,11 @@ export default function ChatbotBubble() {
         content: msg.content
       }));
 
-      // Call backend API
-      const response = await fetch('http://localhost:8000/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: inputValue,
-          history: history
-        }),
+      // Call backend API with authentication
+      const data = await apiClient.post('/api/chat', {
+        message: inputValue,
+        history: history
       });
-
-      if (!response.ok) {
-        throw new Error('Backend API failed');
-      }
-
-      const data = await response.json();
 
       const botResponse: Message = {
         id: (Date.now() + 1).toString(),
@@ -209,8 +198,8 @@ export default function ChatbotBubble() {
               >
                 <div
                   className={`max-w-xs px-4 py-3 rounded-2xl ${message.type === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-br-none'
-                      : 'bg-muted text-foreground rounded-bl-none'
+                    ? 'bg-primary text-primary-foreground rounded-br-none'
+                    : 'bg-muted text-foreground rounded-bl-none'
                     }`}
                 >
                   <MessageContent content={message.content} />

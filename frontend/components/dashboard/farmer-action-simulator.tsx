@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, TrendingUp, TrendingDown, CheckCircle, AlertTriangle, BarChart3, Zap, Download, Copy } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 
 type SimulationData = {
   timestamp: string;
@@ -87,16 +88,7 @@ export default function FarmerActionSimulator() {
       setError(null);
 
       // Call the new comprehensive action plan API
-      const response = await fetch("http://localhost:8000/api/action-plan/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" }
-      });
-
-      if (!response.ok) {
-        throw new Error("Action plan generation failed");
-      }
-
-      const data = await response.json();
+      const data = await apiClient.post("/api/action-plan/generate");
 
       // Extract data from comprehensive response
       const envData = data.environmental_data || {};
@@ -233,20 +225,10 @@ export default function FarmerActionSimulator() {
       setError(null);
 
       // Call the new backend API with real Guwahati market data
-      const response = await fetch("http://localhost:8000/api/calculate-yield-strategy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          yield_kg: yieldKg,
-          selected_approach: selectedApproach
-        })
+      const data = await apiClient.post("/api/calculate-yield-strategy", {
+        yield_kg: yieldKg,
+        selected_approach: selectedApproach
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to calculate yield strategy");
-      }
-
-      const data = await response.json();
 
       // Map backend strategies to frontend format
       const mappedSuggestions: SellingSuggestion[] = data.strategies.map((strategy: any) => ({
@@ -303,18 +285,10 @@ export default function FarmerActionSimulator() {
     if (isNaN(yieldKg) || yieldKg <= 0) return;
 
     try {
-      const response = await fetch("http://localhost:8000/api/calculate-yield-strategy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          yield_kg: yieldKg,
-          selected_approach: approachIndex
-        })
+      const data = await apiClient.post("/api/calculate-yield-strategy", {
+        yield_kg: yieldKg,
+        selected_approach: approachIndex
       });
-
-      if (!response.ok) return;
-
-      const data = await response.json();
 
       // Update only the projected outcomes based on new selection
       setSimulationData(prev => prev ? {
@@ -338,9 +312,17 @@ export default function FarmerActionSimulator() {
     try {
       setLoading(true);
 
-      const response = await fetch("http://localhost:8000/api/generate-pdf-report", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/generate-pdf-report`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await (async () => {
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          // Get token from apiClient if available
+          if ((apiClient as any).getToken) {
+            const token = await (apiClient as any).getToken();
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+          }
+          return headers;
+        })(),
         body: JSON.stringify({
           simulation_data: {
             recommendedActions: simulationData.recommendedActions,

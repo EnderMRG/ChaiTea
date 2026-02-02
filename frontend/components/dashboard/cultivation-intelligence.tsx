@@ -22,6 +22,7 @@ import { AlertCircle, Droplet, Thermometer, Wind, Sun, Lightbulb, Wifi, PenTool 
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { CloudRain } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 
 const IDEAL_RANGES = {
   soil_moisture: { min: 55, max: 65 },
@@ -72,13 +73,13 @@ export default function CultivationIntelligence() {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'iot' | 'manual'>('iot');
   const [manualValues, setManualValues] = useState({
-      moisture: '',
-      temperature: '',
-      humidity: '',
-      rainfall7d: '',
-      location: 'Field A - North Sector',
-    });
-    type SensorReading = {
+    moisture: '',
+    temperature: '',
+    humidity: '',
+    rainfall7d: '',
+    location: 'Field A - North Sector',
+  });
+  type SensorReading = {
     soil_moisture: number;
     temperature: number;
     humidity: number;
@@ -91,12 +92,11 @@ export default function CultivationIntelligence() {
     humidity?: number;
     rainfall_7d?: number;
   }>({});
-  
+
   useEffect(() => {
     const fetchAverages = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/farm/averages");
-        const data = await res.json();
+        const data = await apiClient.get("/api/farm/averages");
 
         if (data.status === "success") {
           setAverages(data.averages);
@@ -120,10 +120,7 @@ export default function CultivationIntelligence() {
   useEffect(() => {
     const fetchTemperatureSeries = async () => {
       try {
-        const res = await fetch(
-          "http://127.0.0.1:8000/api/farm/temperature-series"
-        );
-        const data = await res.json();
+        const data = await apiClient.get("/api/farm/temperature-series");
         setTemperatureSeries(data);
       } catch (err) {
         console.error("Failed to fetch temperature series", err);
@@ -150,10 +147,7 @@ export default function CultivationIntelligence() {
   useEffect(() => {
     const fetchSoilMoistureSeries = async () => {
       try {
-        const res = await fetch(
-          "http://127.0.0.1:8000/api/farm/soil-moisture-series"
-        );
-        const data = await res.json();
+        const data = await apiClient.get("/api/farm/soil-moisture-series");
         setSoilMoistureSeries(data);
       } catch (err) {
         console.error("Failed to fetch soil moisture series", err);
@@ -203,18 +197,8 @@ export default function CultivationIntelligence() {
 
     const sendToBackend = async () => {
       try {
-        const res = await fetch(
-          'http://localhost:8000/api/cultivation/aggregate',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ readings: iotReadings }),
-          }
-        );
+        const data = await apiClient.post('/api/cultivation/aggregate', { readings: iotReadings });
 
-        if (!res.ok) throw new Error('Aggregation failed');
-
-        const data = await res.json();
         console.log("✅ Backend response:", data);
         setBackendAverages(data.averages);
       } catch (err) {
@@ -227,24 +211,21 @@ export default function CultivationIntelligence() {
 
   useEffect(() => {
     if (mode !== 'iot') return;
-    
+
     const fetchLatestCultivation = async () => {
       try {
-        const res = await fetch(
-          "http://127.0.0.1:8000/api/cultivation/latest"
-        );
-        const data = await res.json();
-      
+        const data = await apiClient.get("/api/cultivation/latest");
+
         if (!data.error) {
-          setResult(data); 
+          setResult(data);
         }
       } catch (err) {
         console.error("Failed to fetch cultivation intelligence", err);
       }
     };
-  
+
     fetchLatestCultivation();
-  
+
     // refresh every 5 minutes
     const interval = setInterval(fetchLatestCultivation, 300000);
     return () => clearInterval(interval);
@@ -263,10 +244,7 @@ export default function CultivationIntelligence() {
   useEffect(() => {
     const fetchDailyMetrics = async () => {
       try {
-        const res = await fetch(
-          "http://127.0.0.1:8000/api/farm/daily-metrics"
-        );
-        const data = await res.json();
+        const data = await apiClient.get("/api/farm/daily-metrics");
         setDailyMetrics(data);
       } catch (err) {
         console.error("Failed to fetch daily metrics", err);
@@ -284,14 +262,11 @@ export default function CultivationIntelligence() {
   } | null>(null);
 
   useEffect(() => {
-  if (mode !== 'iot') return;
+    if (mode !== 'iot') return;
 
-  const fetchSmartAlert = async () => {
+    const fetchSmartAlert = async () => {
       try {
-        const res = await fetch(
-          'http://127.0.0.1:8000/api/cultivation/smart-alert'
-        );
-        const data = await res.json();
+        const data = await apiClient.get('/api/cultivation/smart-alert');
         setSmartAlert(data);
       } catch (err) {
         console.error('Smart alert fetch failed', err);
@@ -303,68 +278,61 @@ export default function CultivationIntelligence() {
     return () => clearInterval(interval);
   }, [mode]);
 
-const submitManualData = async () => {
-  try {
-    setLoading(true);
+  const submitManualData = async () => {
+    try {
+      setLoading(true);
 
-    const res = await fetch('http://localhost:8000/api/cultivation', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      const data = await apiClient.post('/api/cultivation', {
         soil_moisture: Number(manualValues.moisture),
         temperature: Number(manualValues.temperature),
         humidity: Number(manualValues.humidity),
         rainfall_last_24h: 0,
         rainfall_7d: Number(manualValues.rainfall7d),
         soil_ph: 5.2, // default Assam tea soil pH
-      }),
+      });
+
+      setResult(data);
+
+    } catch (err) {
+      console.error(err);
+      alert('Backend unavailable or invalid input');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const parseAIRecommendations = (recs: string[]) => {
+    const parsed: { action: string; reason?: string }[] = [];
+    let lastAction: string | null = null;
+
+    recs.forEach((line) => {
+      const clean = line
+        .replace(/\*\*/g, '')
+        .replace(/^•\s*/, '')
+        .trim();
+
+      if (/^why[:\-]/i.test(clean)) {
+
+        if (lastAction) {
+          parsed.push({
+            action: lastAction,
+            reason: clean.replace(/^why[:\-]?\s*/i, ''),
+          });
+          lastAction = null;
+        }
+      } else {
+
+        lastAction = clean;
+      }
     });
 
-    if (!res.ok) throw new Error('Cultivation inference failed');
-
-    const data = await res.json();
-    setResult(data);
-
-  } catch (err) {
-    console.error(err);
-    alert('Backend unavailable or invalid input');
-  } finally {
-    setLoading(false);
-  }
-};
-
-const parseAIRecommendations = (recs: string[]) => {
-  const parsed: { action: string; reason?: string }[] = [];
-  let lastAction: string | null = null;
-
-  recs.forEach((line) => {
-    const clean = line
-      .replace(/\*\*/g, '')   
-      .replace(/^•\s*/, '')   
-      .trim();
-
-    if (/^why[:\-]/i.test(clean)) {
-
-      if (lastAction) {
-        parsed.push({
-          action: lastAction,
-          reason: clean.replace(/^why[:\-]?\s*/i, ''),
-        });
-        lastAction = null;
-      }
-    } else {
-
-      lastAction = clean;
+    // In case an action had no explicit "why"
+    if (lastAction) {
+      parsed.push({ action: lastAction });
     }
-  });
 
-  // In case an action had no explicit "why"
-  if (lastAction) {
-    parsed.push({ action: lastAction });
-  }
-
-  return parsed;
-};
+    return parsed;
+  };
 
 
 
@@ -403,23 +371,22 @@ const parseAIRecommendations = (recs: string[]) => {
           {/* Alerts */}
           {smartAlert && (
             <div
-              className={`flex gap-3 rounded-lg border p-4 ${
-                smartAlert.alert
-                  ? smartAlert.mode === 'AI'
-                    ? 'border-red-400 bg-red-50'
-                    : 'border-yellow-400 bg-yellow-50'
-                  : 'border-green-400 bg-green-50'
-              }`}
+              className={`flex gap-3 rounded-lg border p-4 ${smartAlert.alert
+                ? smartAlert.mode === 'AI'
+                  ? 'border-red-400 bg-red-50'
+                  : 'border-yellow-400 bg-yellow-50'
+                : 'border-green-400 bg-green-50'
+                }`}
             >
               <AlertCircle className="mt-1" />
-            
+
               <div>
                 <h4 className="font-semibold">
                   {smartAlert.alert
                     ? 'Smart Crop Stress Alert'
                     : 'Crop Conditions Stable'}
                 </h4>
-                  
+
                 <p className="text-sm">
                   {smartAlert.alert
                     ? `Risk Score: ${smartAlert.risk_score}/100`
@@ -428,8 +395,8 @@ const parseAIRecommendations = (recs: string[]) => {
               </div>
             </div>
           )}
-          
-          
+
+
 
           {/* Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -468,33 +435,32 @@ const parseAIRecommendations = (recs: string[]) => {
               },
             ].map((metric, idx) => {
               const Icon = metric.icon;
-            
+
               const range =
                 IDEAL_RANGES[metric.key as keyof typeof IDEAL_RANGES];
-            
+
               const status = getStatus(
                 metric.value,
                 range.min,
                 range.max
               );
-            
+
               return (
                 <Card key={idx} className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <Icon className={`h-5 w-5 ${metric.color}`} />
                     <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        statusStyles[status]
-                      }`}
+                      className={`text-xs px-2 py-1 rounded-full ${statusStyles[status]
+                        }`}
                     >
                       {status}
                     </span>
                   </div>
-                    
+
                   <p className="text-sm text-muted-foreground">
                     {metric.label}
                   </p>
-                    
+
                   <p className="text-2xl font-bold text-foreground mt-2">
                     {metric.value !== undefined
                       ? `${metric.value.toFixed(1)} ${metric.unit}`
@@ -504,7 +470,7 @@ const parseAIRecommendations = (recs: string[]) => {
               );
             })}
           </div>
-          
+
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Moisture Levels */}
@@ -563,10 +529,10 @@ const parseAIRecommendations = (recs: string[]) => {
 
               <ResponsiveContainer width="100%" height={250}>
                 <AreaChart
-                  data={temperatureSeries.map((d) => ({
+                  data={Array.isArray(temperatureSeries) ? temperatureSeries.map((d) => ({
                     ...d,
                     ideal: IDEAL_TEMPERATURE,
-                  }))}
+                  })) : []}
                 >
                   {/* Gradient */}
                   <defs>
@@ -575,9 +541,9 @@ const parseAIRecommendations = (recs: string[]) => {
                       <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                
+
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                
+
                   <XAxis
                     dataKey="time"
                     stroke="#6b7280"
@@ -586,7 +552,7 @@ const parseAIRecommendations = (recs: string[]) => {
                   />
 
                   <YAxis stroke="#6b7280" />
-                
+
                   <Tooltip
                     formatter={(value: number) => [`${value} °C`, 'Temperature']}
                     labelFormatter={(label) => `Time: ${label}`}
@@ -625,7 +591,7 @@ const parseAIRecommendations = (recs: string[]) => {
                 </AreaChart>
               </ResponsiveContainer>
             </Card>
-                  
+
             {/* Weekly Environmental Data */}
             <Card className="p-6 lg:col-span-2">
               <h3 className="font-semibold text-foreground mb-4">
@@ -646,14 +612,14 @@ const parseAIRecommendations = (recs: string[]) => {
                     }}
                   />
                   <Legend />
-                  
+
                   <Bar dataKey="soil_moisture" fill="#22c55e" name="Soil Moisture (%)" />
                   <Bar dataKey="temperature" fill="#ef4444" name="Temperature (°C)" />
                   <Bar dataKey="humidity" fill="#06b6d4" name="Humidity (%)" />
                   <Bar dataKey="rainfall" fill="#3b82f6" name="Rainfall (mm)" />
                 </BarChart>
               </ResponsiveContainer>
-            </Card>               
+            </Card>
           </div>
           {result && (
             <Card className="p-6 border-green-300 bg-green-50 rounded-xl">
@@ -685,14 +651,14 @@ const parseAIRecommendations = (recs: string[]) => {
             </Card>
           )}
 
-          
+
         </>
       ) : (
         <>
           {/* Manual Entry Form */}
           <Card className="p-6">
             <h3 className="font-semibold text-foreground mb-6">Enter Environmental Data</h3>
-            <div className="space-y-4">        
+            <div className="space-y-4">
               {/* Input Fields Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -767,7 +733,7 @@ const parseAIRecommendations = (recs: string[]) => {
                 >
                   Clear Form
                 </Button>
-              </div>              
+              </div>
             </div>
           </Card>
           {result && (
@@ -788,50 +754,48 @@ const parseAIRecommendations = (recs: string[]) => {
                 <div>
                   <p className="text-sm text-muted-foreground">Drought Risk</p>
                   <p
-                    className={`font-semibold ${
-                      result.drought_risk === 'High'
-                        ? 'text-red-600'
-                        : result.drought_risk === 'Medium'
+                    className={`font-semibold ${result.drought_risk === 'High'
+                      ? 'text-red-600'
+                      : result.drought_risk === 'Medium'
                         ? 'text-yellow-600'
                         : 'text-green-600'
-                    }`}
+                      }`}
                   >
                     {result.drought_risk}
                   </p>
                 </div>
-                  
+
                 <div>
                   <p className="text-sm text-muted-foreground">Pest Risk</p>
                   <p
-                    className={`font-semibold ${
-                      result.pest_risk === 'High'
-                        ? 'text-red-600'
-                        : result.pest_risk === 'Medium'
+                    className={`font-semibold ${result.pest_risk === 'High'
+                      ? 'text-red-600'
+                      : result.pest_risk === 'Medium'
                         ? 'text-yellow-600'
                         : 'text-green-600'
-                    }`}
+                      }`}
                   >
                     {result.pest_risk}
                   </p>
                 </div>
               </div>
-                  
+
               {/* Action */}
               <div className="mt-4">
                 <p className="text-sm text-muted-foreground">Recommended Action</p>
                 <p className="font-medium text-foreground">{result.action}</p>
               </div>
-                  
+
               {/* Divider */}
               <div className="my-6 border-t border-green-200" />
-                  
+
               {/* ✅ Health Score Breakdown (NOW INSIDE GREEN CARD) */}
               {result.score_explanation && (
                 <div>
                   <p className="text-sm font-semibold text-foreground mb-3">
                     Health Score Breakdown
                   </p>
-              
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {Object.entries(result.score_explanation).map(
                       ([key, value]: [string, any]) => (
@@ -842,13 +806,12 @@ const parseAIRecommendations = (recs: string[]) => {
                           <p className="text-xs text-muted-foreground uppercase">
                             {key.replace('_', ' ')}
                           </p>
-                      
+
                           <p
-                            className={`mt-1 text-sm font-semibold ${
-                              value === 'Optimal'
-                                ? 'text-green-600'
-                                : 'text-yellow-600'
-                            }`}
+                            className={`mt-1 text-sm font-semibold ${value === 'Optimal'
+                              ? 'text-green-600'
+                              : 'text-yellow-600'
+                              }`}
                           >
                             {value}
                           </p>
@@ -861,7 +824,7 @@ const parseAIRecommendations = (recs: string[]) => {
             </Card>
           )}
 
-          
+
         </>
       )}
 
@@ -873,19 +836,19 @@ const parseAIRecommendations = (recs: string[]) => {
             AI Recommendations
           </h3>
         </div>
-          
+
         {!result && (
           <p className="text-sm text-muted-foreground">
             Run analysis to generate AI-powered cultivation recommendations.
           </p>
         )}
-      
+
         {loading && (
           <p className="text-sm text-muted-foreground">
             Generating AI insights…
           </p>
         )}
-      
+
         {result?.ai_recommendations && (
           <div className="space-y-4">
             {parseAIRecommendations(result.ai_recommendations).map(
@@ -897,7 +860,7 @@ const parseAIRecommendations = (recs: string[]) => {
                   <p className="font-medium text-foreground">
                     {rec.action}
                   </p>
-              
+
                   {rec.reason && (
                     <p className="mt-2 text-sm text-muted-foreground">
                       <span className="font-medium text-foreground">

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { User, Lock, Shield, LogOut, Save, X, Eye, EyeOff, Check } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function AccountSettings() {
   const [activeTab, setActiveTab] = useState('profile');
@@ -14,14 +15,31 @@ export default function AccountSettings() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const { user, logout } = useAuth();
+
+  // Initialize profile data from Firebase user
   const [profileData, setProfileData] = useState({
-    fullName: 'Rajesh Kumar',
-    email: 'rajesh.kumar@chai-net.com',
-    phone: '+91 98765 43210',
-    location: 'Tamil Nadu, India',
-    farmName: 'Kumar Tea Estate',
-    farmSize: '50 acres',
+    fullName: '',
+    email: '',
+    phone: '',
+    location: '',
+    farmName: '',
+    farmSize: '',
   });
+
+  // Load user data when component mounts or user changes
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        fullName: user.displayName || user.email?.split('@')[0] || '',
+        email: user.email || '',
+        phone: '',
+        location: '',
+        farmName: user.email?.toLowerCase() === 'demo@chaitea.com' ? 'Demo Tea Estate' : 'My Tea Farm',
+        farmSize: '',
+      });
+    }
+  }, [user]);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -54,6 +72,7 @@ export default function AccountSettings() {
 
   const handleSaveProfile = () => {
     setIsSaving(true);
+    // TODO: Save to Firestore user profile collection
     setTimeout(() => {
       setIsSaving(false);
       setShowSuccessMessage(true);
@@ -71,6 +90,7 @@ export default function AccountSettings() {
       return;
     }
     setIsSaving(true);
+    // TODO: Implement Firebase password change
     setTimeout(() => {
       setIsSaving(false);
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -79,6 +99,18 @@ export default function AccountSettings() {
       setTimeout(() => setShowSuccessMessage(false), 3000);
     }, 1000);
   };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+      window.location.href = '/login';
+    }
+  };
+
+  // Don't render if no user
+  if (!user) return null;
 
   return (
     <div className="space-y-6">
@@ -140,9 +172,12 @@ export default function AccountSettings() {
               <input
                 type="email"
                 value={profileData.email}
-                onChange={(e) => handleProfileChange('email', e.target.value)}
-                className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                readOnly
+                disabled
+                className="w-full px-4 py-2 border border-border rounded-lg bg-muted text-muted-foreground cursor-not-allowed"
+                title="Email cannot be changed"
               />
+              <p className="text-xs text-muted-foreground mt-1">Email is managed by your Google account</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Phone Number</label>
@@ -370,7 +405,7 @@ export default function AccountSettings() {
 
           <div className="pt-6 border-t border-border">
             <Button
-              onClick={() => window.location.href = '/login'}
+              onClick={handleLogout}
               variant="outline"
               className="text-red-600 hover:text-red-700 border-red-200 dark:border-red-900/50 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-2 bg-transparent"
             >

@@ -12,3 +12,11 @@ python-dotenv==1.0.0
 openpyxl==3.1.2
 opencv-python-headless
 reportlab
+torch>=2.0.0
+torchvision>=0.15.0
+seaborn>=0.11.0
+matplotlib>=3.2.2
+tqdm>=4.64.0
+PyYAML>=5.3.1
+scipy>=1.4.1
+requests>=2.23.0

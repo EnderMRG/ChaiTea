@@ -1,5 +1,6 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import joblib
 import numpy as np
 from PIL import Image
@@ -14,7 +15,7 @@ import re
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, auth
 from google.cloud.firestore_v1 import Query
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -29,10 +30,28 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.pdfgen import canvas
 from fastapi.responses import FileResponse
 import tempfile
+import torch
+import json
 
+# Load environment variables first
+load_dotenv()
 
+# Load Firebase credentials from environment variables
+firebase_creds = {
+    "type": os.getenv("FIREBASE_TYPE"),
+    "project_id": os.getenv("FIREBASE_PROJECT_ID"),
+    "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
+    "private_key": os.getenv("FIREBASE_PRIVATE_KEY", "").replace("\\n", "\n"),  # Convert literal \n to actual newlines
+    "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
+    "client_id": os.getenv("FIREBASE_CLIENT_ID"),
+    "auth_uri": os.getenv("FIREBASE_AUTH_URI"),
+    "token_uri": os.getenv("FIREBASE_TOKEN_URI"),
+    "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER_CERT_URL"),
+    "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL"),
+    "universe_domain": os.getenv("FIREBASE_UNIVERSE_DOMAIN")
+}
 
-cred = credentials.Certificate("serviceAccountKey.json")
+cred = credentials.Certificate(firebase_creds)
 firebase_admin.initialize_app(cred)
 
 db = firestore.client()
@@ -71,9 +90,62 @@ except Exception as e:
     print("❌ DATA LOAD ERROR:", e)
     df = None
 
-load_dotenv()
-
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+# Demo account configuration
+DEMO_EMAIL = os.getenv("DEMO_EMAIL", "demo@chaitea.com")
+
+# Security
+security = HTTPBearer()
+
+# User model
+class User(BaseModel):
+    uid: str
+    email: str
+    is_demo_view: bool = False
+
+# Authentication dependency
+async def get_current_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> User:
+    """
+    Verify Firebase ID token and return user information.
+    Checks X-Force-Demo header to toggle demo view.
+    """
+    try:
+        if not credentials:
+            raise HTTPException(status_code=401, detail="No credentials provided")
+        
+        token = credentials.credentials
+        decoded_token = auth.verify_id_token(token)
+        
+        # Check for Demo Mode header
+        is_demo = request.headers.get("X-Force-Demo") == "true"
+        if is_demo:
+            print(f"🎭 DEMO MODE ACTIVE for user: {decoded_token.get('email')}")
+
+        return User(
+            uid=decoded_token['uid'],
+            email=decoded_token.get('email', ''),
+            is_demo_view=is_demo
+        )
+    except Exception as e:
+        print(f"❌ AUTH ERROR: {type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authentication credentials"
+        )
+
+# Farm ID resolution
+def resolve_farm_id(user: User) -> str:
+    """
+    Determine which farm ID to use based on user.
+    If 'is_demo_view' is True or email matches demo, use 'demo_farm'.
+    """
+    if user.is_demo_view or user.email.lower() == DEMO_EMAIL.lower():
+        return "demo_farm"
+    return f"farm_{user.uid}"
 
 
 app = FastAPI(title="CHAI-NET Backend")
@@ -95,6 +167,16 @@ drought_model = joblib.load("models/drought_risk_model.pkl")
 feature_names = joblib.load("models/model1_features.pkl")
 price_model = joblib.load("models/tea_price_model.pkl")
 class_labels = joblib.load("models/class_labels.pkl")
+
+# Load YOLOv5 object detection model for disease localization
+try:
+    yolo_model = torch.hub.load('ultralytics/yolov5', 'custom', path='models/best.pt', force_reload=False)
+    yolo_model.conf = 0.25  # Confidence threshold
+    yolo_model.iou = 0.45   # NMS IOU threshold
+    print("✅ YOLOv5 disease detection model loaded successfully")
+except Exception as e:
+    print(f"⚠️ YOLOv5 model loading failed: {e}")
+    yolo_model = None
 
 index_to_label = {v: k for k, v in class_labels.items()}
 
@@ -255,14 +337,59 @@ def analyze_leaf_surface(image: Image.Image):
         "dark": round(np.sum(dark_mask > 0) / total_pixels, 3),
     }
 
+
+def detect_disease_with_yolo(image: Image.Image):
+    """
+    Run YOLOv5 object detection on the leaf image to detect disease regions.
+    Returns list of detections with disease name, bounding box, and confidence.
+    """
+    if yolo_model is None:
+        return None
+    
+    try:
+        # Run inference
+        results = yolo_model(image)
+        
+        # Parse results
+        detections = []
+        
+        # results.pandas().xyxy[0] contains: xmin, ymin, xmax, ymax, confidence, class, name
+        df = results.pandas().xyxy[0]
+        
+        for _, row in df.iterrows():
+            detection = {
+                "disease_name": row['name'],
+                "confidence": round(float(row['confidence']), 3),
+                "bbox": {
+                    "xmin": int(row['xmin']),
+                    "ymin": int(row['ymin']),
+                    "xmax": int(row['xmax']),
+                    "ymax": int(row['ymax'])
+                }
+            }
+            detections.append(detection)
+        
+        print(f"\n🎯 YOLO DETECTIONS: {len(detections)} disease regions found")
+        for det in detections:
+            print(f"   - {det['disease_name']}: {det['confidence']*100:.1f}% confidence")
+        
+        return detections if len(detections) > 0 else None
+        
+    except Exception as e:
+        print(f"❌ YOLO detection error: {e}")
+        return None
+
 @app.post("/api/leaf-quality")
-async def leaf_quality(file: UploadFile = File(...)):
+async def leaf_quality(file: UploadFile = File(...), user: User = Depends(get_current_user)):
     image_bytes = await file.read()
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    original_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    
+    # -------- YOLO OBJECT DETECTION (on original image) --------
+    yolo_detections = detect_disease_with_yolo(original_image)
 
     # -------- CENTER CROP (preserve lesions) --------
-    w, h = image.size
-    image = image.crop((
+    w, h = original_image.size
+    image = original_image.crop((
         int(w * 0.1),
         int(h * 0.1),
         int(w * 0.9),
@@ -352,7 +479,7 @@ async def leaf_quality(file: UploadFile = File(...)):
     )
 
     # -------- STORE IN FIRESTORE --------
-    FARM_ID = "demo_farm"
+    FARM_ID = resolve_farm_id(user)
 
     leaf_scan_doc = {
         "grade": final_grade,
@@ -389,7 +516,8 @@ async def leaf_quality(file: UploadFile = File(...)):
             "CNN prediction used when disease detected; "
             "HSV rule-based grading used when CNN predicts healthy"
         ),
-        "ai_recommendations": ai_recommendations
+        "ai_recommendations": ai_recommendations,
+        "yolo_detections": yolo_detections  # Object detection results
     }
 
 
@@ -582,8 +710,8 @@ def aggregate_cultivation_metrics(data: dict):
     }
 
 @app.get("/api/farm/averages")
-def get_farm_averages():
-    FARM_ID = "demo_farm"
+def get_farm_averages(user: User = Depends(get_current_user)):
+    FARM_ID = resolve_farm_id(user)
 
     readings_ref = (
         db.collection("farms")
@@ -626,8 +754,8 @@ def get_farm_averages():
     }
 
 @app.get("/api/farm/soil-moisture-series")
-def soil_moisture_series():
-    FARM_ID = "demo_farm"
+def soil_moisture_series(user: User = Depends(get_current_user)):
+    FARM_ID = resolve_farm_id(user)
 
     docs = (
         db.collection("farms")
@@ -662,8 +790,8 @@ def soil_moisture_series():
     ]
 
 @app.get("/api/farm/temperature-series")
-def temperature_series():
-    FARM_ID = "demo_farm"
+def temperature_series(user: User = Depends(get_current_user)):
+    FARM_ID = resolve_farm_id(user)
 
     docs = (
         db.collection("farms")
@@ -698,8 +826,8 @@ def temperature_series():
 
 
 @app.get("/api/farm/daily-metrics")
-def daily_metrics():
-    FARM_ID = "demo_farm"
+def daily_metrics(user: User = Depends(get_current_user)):
+    FARM_ID = resolve_farm_id(user)
 
     now = datetime.utcnow()
     start = now - timedelta(days=7)
@@ -753,8 +881,8 @@ def daily_metrics():
     return result
 
 @app.get("/api/cultivation/latest")
-def latest_cultivation_from_iot():
-    FARM_ID = "demo_farm"
+def latest_cultivation_from_iot(user: User = Depends(get_current_user)):
+    FARM_ID = resolve_farm_id(user)
 
     docs = (
         db.collection("farms")
@@ -785,10 +913,11 @@ def latest_cultivation_from_iot():
 
 
 @app.get("/api/cultivation/smart-alert")
-def smart_alert():
+def smart_alert(user: User = Depends(get_current_user)):
+    FARM_ID = resolve_farm_id(user)
     docs = (
         db.collection("farms")
-        .document("demo_farm")
+        .document(FARM_ID)
         .collection("sensors")
         .document("sensors_root")
         .collection("readings")
@@ -1690,14 +1819,14 @@ def generate_pdf_report(data: PDFReportData):
 # INTELLIGENT ACTION PLAN GENERATOR
 # -----------------------------
 
-def fetch_todays_comprehensive_data():
+def fetch_todays_comprehensive_data(farm_id: str):
     """
     Aggregates all data sources for comprehensive action plan generation:
     - Last 7 days of sensor readings (soil moisture, temperature, humidity, rainfall)
     - Last 7 days of leaf scans with quality metrics
     - Current market prices and trends
     """
-    FARM_ID = "demo_farm"
+    FARM_ID = farm_id
     
     # -------- FETCH LAST 7 DAYS OF SENSOR DATA --------
     seven_days_ago = datetime.utcnow() - timedelta(days=7)
@@ -2282,7 +2411,7 @@ Farm Analysis:
 
 
 @app.post("/api/action-plan/generate")
-def generate_comprehensive_action_plan():
+def generate_comprehensive_action_plan(user: User = Depends(get_current_user)):
     """
     Generate comprehensive action plan integrating all data sources:
     - Environmental sensors (soil, temperature, humidity, rainfall)
@@ -2292,8 +2421,10 @@ def generate_comprehensive_action_plan():
     Returns strategic recommendations across multiple time horizons
     """
     
+    FARM_ID = resolve_farm_id(user)
+    
     # -------- AGGREGATE ALL DATA --------
-    comprehensive_data = fetch_todays_comprehensive_data()
+    comprehensive_data = fetch_todays_comprehensive_data(FARM_ID)
     
     sensor_data = comprehensive_data["sensor_data"]
     leaf_scans = comprehensive_data["leaf_scans"]
@@ -2373,7 +2504,7 @@ def generate_comprehensive_action_plan():
     }
     
     db.collection("farms") \
-      .document("demo_farm") \
+      .document(FARM_ID) \
       .collection("action_plans") \
       .add(action_plan_doc)
     
@@ -2438,11 +2569,11 @@ def generate_comprehensive_action_plan():
 
 
 @app.get("/api/action-plan/history")
-def get_action_plan_history(limit: int = 10):
+def get_action_plan_history(limit: int = 10, user: User = Depends(get_current_user)):
     """
     Retrieve historical action plans for comparison and tracking
     """
-    FARM_ID = "demo_farm"
+    FARM_ID = resolve_farm_id(user)
     
     docs = (
         db.collection("farms")
