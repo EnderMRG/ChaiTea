@@ -155,10 +155,25 @@ def resolve_farm_id(user: User) -> str:
 
 app = FastAPI(title="CHAI-NET Backend")
 
-# CORS (important for Next.js)
+# CORS - Support both local development and production
+frontend_url = os.getenv("FRONTEND_URL", "")
+allowed_origins = [
+    "http://localhost:3000",  # Local development
+]
+
+# Add production frontend URL if set
+if frontend_url:
+    allowed_origins.append(frontend_url)
+
+# Also allow common deployment platforms
+allowed_origins.extend([
+    "https://*.vercel.app",
+    "https://*.onrender.com",
+])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
