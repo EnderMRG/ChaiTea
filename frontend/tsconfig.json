@@ -23,24 +23,7 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@/lib/*": [
-        "./lib/*"
-      ],
-      "@/components/*": [
-        "./components/*"
-      ],
-      "@/app/*": [
-        "./app/*"
-      ],
-      "@/context/*": [
-        "./context/*"
-      ],
-      "@/hooks/*": [
-        "./hooks/*"
-      ]
+      "@/*": ["./*"]
     }
   },
   "include": [
