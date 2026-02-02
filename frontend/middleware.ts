@@ -1,12 +1,3 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-
-export function middleware(request: NextRequest) {
-    // This is a simplified middleware. In production, you'd verify the token server-side
-    // For now, we'll let the client-side AuthContext handle redirects
-    return NextResponse.next();
-}
-
-export const config = {
-    matcher: ['/dashboard/:path*'],
-};
+// Middleware handled by client-side AuthContext
+// For server-side auth, use Route Handlers instead
+// See: https://nextjs.org/docs/app/api-reference/file-conventions/route-handlers
