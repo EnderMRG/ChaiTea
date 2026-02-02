@@ -13,36 +13,39 @@ import ChatbotBubble from '@/components/dashboard/chatbot-bubble';
 import ProfileDropdown from '@/components/dashboard/profile-dropdown';
 import AccountSettings from '@/components/dashboard/account-settings';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { LanguageToggle } from '@/components/language-toggle';
+import { useLanguage } from '@/context/LanguageContext';
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState('cultivation');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { t } = useLanguage();
 
   const tabs = [
     {
       id: 'cultivation',
-      label: 'Cultivation Intelligence',
-      description: 'Real-time IoT monitoring',
+      label: t('cultivationIntelligence'),
+      description: t('realtimeIotMonitoring'),
     },
     {
       id: 'leaf-quality',
-      label: 'Leaf Quality Scanner',
-      description: 'AI-powered grading',
+      label: t('leafQualityScanner'),
+      description: t('aiPoweredGrading'),
     },
     {
       id: 'action',
-      label: 'Action Simulator',
-      description: 'Simulate Action Before Outcome',
+      label: t('actionSimulator'),
+      description: t('simulateActionBeforeOutcome'),
     },
     {
       id: 'market',
-      label: 'Market Intelligence',
-      description: 'Price forecasting & trends',
+      label: t('marketIntelligence'),
+      description: t('priceForecastingTrends'),
     },
     {
       id: 'settings',
-      label: 'Account Settings',
-      description: 'Manage your profile',
+      label: t('accountSettings'),
+      description: t('manageYourProfile'),
     },
   ];
 
@@ -92,7 +95,7 @@ export default function DashboardPage() {
             <div className="p-4 border-t border-border">
               <Link href="/">
                 <Button variant="outline" size="sm" className="w-full bg-transparent">
-                  Back to Home
+                  {t('backToHome')}
                 </Button>
               </Link>
             </div>
@@ -110,7 +113,7 @@ export default function DashboardPage() {
               >
                 <Menu className="h-6 w-6" />
               </button>
-              <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
+              <h1 className="text-xl font-bold text-foreground">{t('dashboard')}</h1>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-sm text-muted-foreground">
@@ -120,6 +123,7 @@ export default function DashboardPage() {
                   day: 'numeric',
                 })}
               </div>
+              <LanguageToggle />
               <ProfileDropdown onSettingsClick={() => setActiveTab('settings')} />
             </div>
           </div>

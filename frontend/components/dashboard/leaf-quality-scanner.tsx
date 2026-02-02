@@ -367,6 +367,92 @@ export default function LeafQualityScanner() {
         </Card>
       </div>
 
+      {/* YOLO Object Detection Results */}
+      {yoloDetections && yoloDetections.length > 0 && (
+        <Card className="p-6 border-orange-200 dark:border-orange-900/30 bg-gradient-to-br from-orange-50 dark:from-orange-900/10 to-transparent">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+            <h3 className="font-semibold text-foreground text-lg">
+              Disease Detection (Object Detection Model)
+            </h3>
+          </div>
+
+          <p className="text-sm text-muted-foreground mb-4">
+            YOLOv5 detected {yoloDetections.length} disease region{yoloDetections.length > 1 ? 's' : ''} in the leaf image
+          </p>
+
+          <div className="space-y-3">
+            {yoloDetections.map((detection, idx) => (
+              <div
+                key={idx}
+                className="rounded-lg border border-orange-200 dark:border-orange-900/50 bg-white dark:bg-background p-4"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                      <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                        {idx + 1}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground capitalize">
+                        {detection.disease_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Region {idx + 1}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                      {Math.round(detection.confidence * 100)}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">Confidence</p>
+                  </div>
+                </div>
+
+                {/* Bounding Box Info */}
+                <div className="grid grid-cols-2 gap-2 mt-3 p-3 bg-muted/50 rounded">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Location</p>
+                    <p className="text-sm font-mono text-foreground">
+                      ({detection.bbox.xmin}, {detection.bbox.ymin})
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Size</p>
+                    <p className="text-sm font-mono text-foreground">
+                      {detection.bbox.xmax - detection.bbox.xmin} × {detection.bbox.ymax - detection.bbox.ymin}px
+                    </p>
+                  </div>
+                </div>
+
+                {/* Severity indicator based on confidence */}
+                <div className="mt-3 flex items-center gap-2">
+                  <div className={`h-2 flex-1 rounded-full ${detection.confidence > 0.8 ? 'bg-red-500' :
+                    detection.confidence > 0.5 ? 'bg-orange-500' :
+                      'bg-yellow-500'
+                    }`} style={{ width: `${detection.confidence * 100}%` }} />
+                  <span className={`text-xs font-semibold ${detection.confidence > 0.8 ? 'text-red-600 dark:text-red-400' :
+                    detection.confidence > 0.5 ? 'text-orange-600 dark:text-orange-400' :
+                      'text-yellow-600 dark:text-yellow-400'
+                    }`}>
+                    {detection.confidence > 0.8 ? 'High' :
+                      detection.confidence > 0.5 ? 'Medium' : 'Low'} Severity
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-sm text-foreground">
+              <span className="font-semibold">💡 Note:</span> This model uses YOLOv5 object detection to identify and localize disease regions on the leaf surface. The bounding boxes show the exact location of detected diseases.
+            </p>
+          </div>
+        </Card>
+      )}
+
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -556,92 +642,6 @@ export default function LeafQualityScanner() {
           </div>
         )}
       </Card>
-
-      {/* YOLO Object Detection Results */}
-      {yoloDetections && yoloDetections.length > 0 && (
-        <Card className="p-6 border-orange-200 dark:border-orange-900/30 bg-gradient-to-br from-orange-50 dark:from-orange-900/10 to-transparent">
-          <div className="flex items-center gap-2 mb-4">
-            <AlertCircle className="h-5 w-5 text-orange-600 dark:text-orange-400" />
-            <h3 className="font-semibold text-foreground text-lg">
-              Disease Detection (Object Detection Model)
-            </h3>
-          </div>
-
-          <p className="text-sm text-muted-foreground mb-4">
-            YOLOv5 detected {yoloDetections.length} disease region{yoloDetections.length > 1 ? 's' : ''} in the leaf image
-          </p>
-
-          <div className="space-y-3">
-            {yoloDetections.map((detection, idx) => (
-              <div
-                key={idx}
-                className="rounded-lg border border-orange-200 dark:border-orange-900/50 bg-white dark:bg-background p-4"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
-                      <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
-                        {idx + 1}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground capitalize">
-                        {detection.disease_name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Region {idx + 1}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                      {Math.round(detection.confidence * 100)}%
-                    </p>
-                    <p className="text-xs text-muted-foreground">Confidence</p>
-                  </div>
-                </div>
-
-                {/* Bounding Box Info */}
-                <div className="grid grid-cols-2 gap-2 mt-3 p-3 bg-muted/50 rounded">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Location</p>
-                    <p className="text-sm font-mono text-foreground">
-                      ({detection.bbox.xmin}, {detection.bbox.ymin})
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground">Size</p>
-                    <p className="text-sm font-mono text-foreground">
-                      {detection.bbox.xmax - detection.bbox.xmin} × {detection.bbox.ymax - detection.bbox.ymin}px
-                    </p>
-                  </div>
-                </div>
-
-                {/* Severity indicator based on confidence */}
-                <div className="mt-3 flex items-center gap-2">
-                  <div className={`h-2 flex-1 rounded-full ${detection.confidence > 0.8 ? 'bg-red-500' :
-                    detection.confidence > 0.5 ? 'bg-orange-500' :
-                      'bg-yellow-500'
-                    }`} style={{ width: `${detection.confidence * 100}%` }} />
-                  <span className={`text-xs font-semibold ${detection.confidence > 0.8 ? 'text-red-600 dark:text-red-400' :
-                    detection.confidence > 0.5 ? 'text-orange-600 dark:text-orange-400' :
-                      'text-yellow-600 dark:text-yellow-400'
-                    }`}>
-                    {detection.confidence > 0.8 ? 'High' :
-                      detection.confidence > 0.5 ? 'Medium' : 'Low'} Severity
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <p className="text-sm text-foreground">
-              <span className="font-semibold">💡 Note:</span> This model uses YOLOv5 object detection to identify and localize disease regions on the leaf surface. The bounding boxes show the exact location of detected diseases.
-            </p>
-          </div>
-        </Card>
-      )}
     </div>
   );
 }

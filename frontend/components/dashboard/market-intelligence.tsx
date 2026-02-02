@@ -116,16 +116,16 @@ export default function MarketIntelligence() {
       actual_price: d.type === "actual" ? d.price : null,
       forecast_price: d.type === "forecast" ? d.price : null,
     }));
-    const monthTicks = Array.from(
-      new Set(
-        chartData.map(d => d.date.slice(0, 7)) // YYYY-MM
-      )
-    );
-    const sortedDemandData = [...demandSupply].sort(
-      (a, b) => new Date(a.month).getTime() - new Date(b.month).getTime()
-    );
+  const monthTicks = Array.from(
+    new Set(
+      chartData.map(d => d.date.slice(0, 7)) // YYYY-MM
+    )
+  );
+  const sortedDemandData = [...demandSupply].sort(
+    (a, b) => new Date(a.month).getTime() - new Date(b.month).getTime()
+  );
 
-  
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -177,7 +177,7 @@ export default function MarketIntelligence() {
                     {(item.label === 'Market Demand Index' || item.label === 'Price Volatility') && (
                       <div className="relative group">
                         <Info className="h-3.5 w-3.5 text-muted-foreground cursor-pointer" />
-                    
+
                         {/* Tooltip */}
                         <div className="absolute z-50 hidden group-hover:block top-5 left-0 w-64 rounded-lg bg-background border border-border p-3 shadow-lg">
                           {item.label === 'Market Demand Index' ? (
@@ -189,16 +189,15 @@ export default function MarketIntelligence() {
                       </div>
                     )}
                   </div>
-                  
+
                   <p className="text-2xl font-bold text-foreground mt-2">{item.value}</p>
                   <p
-                    className={`text-xs mt-2 ${
-                      item.status === 'up'
-                        ? 'text-green-600 dark:text-green-400'
-                        : item.status === 'down'
-                          ? 'text-red-600 dark:text-red-400'
-                          : 'text-blue-600 dark:text-blue-400'
-                    }`}
+                    className={`text-xs mt-2 ${item.status === 'up'
+                      ? 'text-green-600 dark:text-green-400'
+                      : item.status === 'down'
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-blue-600 dark:text-blue-400'
+                      }`}
                   >
                     {item.change} vs last week
                   </p>
@@ -209,31 +208,30 @@ export default function MarketIntelligence() {
           );
         })}
       </div>
-      
+
 
       {/* Market Insight */}
       {marketInsight && (
         <Card
-          className={`p-4 flex items-start gap-3 border-l-4 ${
-            marketInsight.signal === 'opportunity'
-              ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-              : marketInsight.signal === 'risk'
+          className={`p-4 flex items-start gap-3 border-l-4 ${marketInsight.signal === 'opportunity'
+            ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+            : marketInsight.signal === 'risk'
               ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
               : 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
-          }`}
+            }`}
         >
           <TrendingUp className="h-5 w-5 mt-0.5 flex-shrink-0 text-foreground opacity-70" />
-        
+
           <div>
             <h3 className="font-semibold text-foreground">
               {marketInsight.title}
             </h3>
-        
+
             {/* Rule-based insight */}
             <p className="text-sm text-muted-foreground mt-1">
               {marketInsight.message}
             </p>
-        
+
             {/* AI Insight (NEW) */}
             {marketInsight.ai_message && (
               <p className="text-sm text-muted-foreground mt-2 italic">
@@ -260,7 +258,7 @@ export default function MarketIntelligence() {
                   <stop offset="95%" stopColor="#16a34a" stopOpacity={0} />
                 </linearGradient>
               </defs>
-                
+
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="date"
@@ -269,7 +267,7 @@ export default function MarketIntelligence() {
                 tickFormatter={(value) => {
                   const [year, month] = value.split("-");
                   const label = `${month}/${year.slice(2)}`;
-                
+
                   // show label only when month changes
                   if (label === lastMonth) return "";
                   lastMonth = label;
@@ -277,17 +275,17 @@ export default function MarketIntelligence() {
                 }}
               />
               <YAxis />
-              
+
               <Tooltip />
               <Legend />
-              
+
               <ReferenceLine
                 x={chartData.find(d => d.forecast_price !== null)?.date}
                 stroke="#94a3b8"
                 strokeDasharray="4 4"
                 label="Forecast"
               />
-          
+
               {/* Actual price (Area) */}
               <Area
                 type="monotone"
@@ -298,7 +296,7 @@ export default function MarketIntelligence() {
                 dot={false}
                 name="Actual Price"
               />
-          
+
               {/* Forecast price (Line) */}
               <Line
                 type="monotone"
@@ -308,7 +306,7 @@ export default function MarketIntelligence() {
                 strokeWidth={2}
                 dot={{ r: 3 }}
                 name="Forecast Price"
-                
+
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -353,7 +351,7 @@ export default function MarketIntelligence() {
               />
 
               <Legend />
-              
+
               {/* Demand bar */}
               <Bar
                 yAxisId="left"
@@ -371,7 +369,7 @@ export default function MarketIntelligence() {
               />
             </BarChart>
           </ResponsiveContainer>
-              
+
         </Card>
       </div>
 
@@ -412,19 +410,19 @@ export default function MarketIntelligence() {
                   <td className="py-3 px-4 font-medium text-foreground">
                     {row.location}
                   </td>
-              
+
                   <td className="py-3 px-4 text-foreground">
                     ₹{row.avgPrice}
                   </td>
-              
+
                   <td className="py-3 px-4 text-foreground">
                     ₹{row.currentPrice}
                   </td>
-              
+
                   <td className="py-3 px-4 text-foreground">
                     ₹{row.minPrice} – ₹{row.maxPrice}
                   </td>
-              
+
                   <td className="py-3 px-4">
                     {row.trend === 'up' && (
                       <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
@@ -451,7 +449,7 @@ export default function MarketIntelligence() {
             </tbody>
           </table>
         </div>
-            
+
         <p className="text-sm text-muted-foreground mt-4">
           This table compares historical and current prices across locations to
           highlight regional pricing differences and short-term trends.
@@ -464,7 +462,7 @@ export default function MarketIntelligence() {
           <h3 className="font-semibold text-foreground mb-3">
             AI Strategy Recommendations
           </h3>
-            
+
           <ul className="space-y-2 text-sm text-muted-foreground">
             {marketInsight.ai_recommendations.map((rec: string, idx: number) => (
               <li key={idx} className="flex items-start gap-2">

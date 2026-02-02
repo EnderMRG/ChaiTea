@@ -216,6 +216,9 @@ export default function CultivationIntelligence() {
       try {
         const data = await apiClient.get("/api/cultivation/latest");
 
+        console.log('🔍 IoT cultivation result:', data);
+        console.log('🔍 AI recommendations:', data.ai_recommendations);
+
         if (!data.error) {
           setResult(data);
         }
@@ -291,6 +294,8 @@ export default function CultivationIntelligence() {
         soil_ph: 5.2, // default Assam tea soil pH
       });
 
+      console.log('🔍 Manual cultivation result:', data);
+      console.log('🔍 AI recommendations:', data.ai_recommendations);
       setResult(data);
 
     } catch (err) {
@@ -302,6 +307,7 @@ export default function CultivationIntelligence() {
   };
 
   const parseAIRecommendations = (recs: string[]) => {
+    console.log('🔍 Parsing AI recommendations, input:', recs);
     const parsed: { action: string; reason?: string }[] = [];
     let lastAction: string | null = null;
 
@@ -331,6 +337,7 @@ export default function CultivationIntelligence() {
       parsed.push({ action: lastAction });
     }
 
+    console.log('🔍 Parsed AI recommendations, output:', parsed);
     return parsed;
   };
 
@@ -848,6 +855,14 @@ export default function CultivationIntelligence() {
             Generating AI insights…
           </p>
         )}
+
+        {(() => {
+          console.log('🔍 Checking AI recommendations rendering:');
+          console.log('  - result exists:', !!result);
+          console.log('  - result.ai_recommendations exists:', !!result?.ai_recommendations);
+          console.log('  - result.ai_recommendations value:', result?.ai_recommendations);
+          return null;
+        })()}
 
         {result?.ai_recommendations && (
           <div className="space-y-4">

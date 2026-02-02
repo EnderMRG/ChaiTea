@@ -32,6 +32,11 @@ from fastapi.responses import FileResponse
 import tempfile
 import torch
 import json
+import pathlib
+
+# Fix for YOLOv5 models trained on Linux (e.g. Colab) being loaded on Windows
+temp = pathlib.PosixPath
+pathlib.PosixPath = pathlib.WindowsPath
 
 # Load environment variables first
 load_dotenv()
