@@ -39,3 +39,17 @@ services:
       - key: FIREBASE_UNIVERSE_DOMAIN
         value: googleapis.com
     healthCheckPath: /docs
+
+  # Frontend Next.js Service
+  - type: web
+    name: chaitea-frontend
+    runtime: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        value: https://chaitea-backend.onrender.com
