@@ -12,7 +12,17 @@ Before you start, make sure you have:
 - [ ] Render account ([sign up here](https://render.com))
 - [ ] Your code pushed to GitHub
 - [ ] Firebase service account credentials (from Firebase Console)
-- [ ] Gemini API key (from Google AI Studio)
+- [ ] Gemini API key ready
+
+## ⚠️ CRITICAL: Python Version
+
+**Your project requires Python 3.10!** Render uses Python 3.13 by default, which will cause build failures.
+
+**✅ Solution Applied:** 
+- `backend/runtime.txt` file created (forces Python 3.10.14)
+- `render.yaml` updated with correct Python version
+
+**If you get build errors about `setuptools.build_meta` or dependency installation failures, see `RENDER_PYTHON_FIX.md` for detailed troubleshooting.**
 
 ---
 
