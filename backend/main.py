@@ -1,5 +1,8 @@
 # MUST BE FIRST - numpy compatibility layer before ANY imports that use numpy
 import sys
+import pathlib
+import platform
+
 try:
     import numpy._core
 except ImportError:
@@ -10,6 +13,37 @@ except ImportError:
         sys.modules['numpy._core.multiarray'] = sys.modules['numpy.core.multiarray']
     except (ImportError, AttributeError, KeyError):
         pass
+
+# ===== PATHLIB FIX FOR CROSS-PLATFORM MODEL LOADING =====
+# Models pickled on Linux (PosixPath) need to load on Windows (WindowsPath) and vice versa
+# This must happen BEFORE joblib.load() is called
+def patch_pathlib_for_cross_platform_loading():
+    """
+    Patch pathlib to allow loading models trained on different OS.
+    If on Windows, allow PosixPath. If on Linux, allow WindowsPath.
+    """
+    current_os = platform.system()
+    
+    if current_os == "Windows":
+        # Windows: Map PosixPath to WindowsPath so Linux-trained models can load
+        original_posix = pathlib.PosixPath
+        
+        class CrossPlatformPosixPath(pathlib.WindowsPath):
+            """Fake PosixPath that actually uses WindowsPath on Windows"""
+            pass
+        
+        pathlib.PosixPath = CrossPlatformPosixPath
+    else:
+        # Linux: Map WindowsPath to PosixPath so Windows-trained models can load  
+        original_windows = pathlib.WindowsPath
+        
+        class CrossPlatformWindowsPath(pathlib.PosixPath):
+            """Fake WindowsPath that actually uses PosixPath on Linux"""
+            pass
+        
+        pathlib.WindowsPath = CrossPlatformWindowsPath
+
+patch_pathlib_for_cross_platform_loading()
 
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -43,11 +77,6 @@ from fastapi.responses import FileResponse
 import tempfile
 import torch
 import json
-import pathlib
-
-# Fix for YOLOv5 models trained on Windows being loaded on Linux
-temp = pathlib.WindowsPath
-pathlib.WindowsPath = pathlib.PosixPath
 
 # Load environment variables first
 load_dotenv()
@@ -71,6 +100,24 @@ cred = credentials.Certificate(firebase_creds)
 firebase_admin.initialize_app(cred)
 
 db = firestore.client()
+
+# ===== TWILIO SMS CONFIGURATION =====
+from twilio.rest import Client
+
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_PHONE = os.getenv("TWILIO_PHONE")
+
+# Initialize Twilio client
+twilio_client = None
+if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
+    try:
+        twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        print("✅ Twilio SMS service initialized successfully")
+    except Exception as e:
+        print(f"⚠️ Twilio initialization failed: {e}")
+else:
+    print("⚠️ Twilio credentials not configured - SMS service disabled")
 
 try:
     df = pd.read_excel("teadata.xlsx")
@@ -219,8 +266,168 @@ def detailed_health():
             "yolo_detection": "loaded" if yolo_model else "failed"
         },
         "firebase": "connected",
+        "twilio_sms": "configured" if twilio_client else "not_configured",
         "timestamp": datetime.utcnow().isoformat()
     }
+
+
+# ===== SMS ALERT SERVICE =====
+
+class SMSRequest(BaseModel):
+    """Request model for sending SMS"""
+    phone: str  
+    message: str 
+
+class SMSResponse(BaseModel):
+    """Response model for SMS sending"""
+    success: bool
+    message_sid: Optional[str] = None
+    error: Optional[str] = None
+    timestamp: str
+
+@app.post("/api/send-sms")
+def send_sms(request: SMSRequest):
+    """
+    Send SMS alert to a worker's phone.
+    
+    Request body:
+    {
+        "phone": "+917002168639",
+        "message": "আজি কাম আছে"
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "message_sid": "SM1234567890abcdef...",
+        "timestamp": "2026-02-03T02:30:00.000000"
+    }
+    """
+    
+    # Validate inputs
+    if not request.phone or not request.message:
+        return SMSResponse(
+            success=False,
+            error="Phone number and message are required",
+            timestamp=datetime.utcnow().isoformat()
+        )
+    
+    # Check if Twilio is configured
+    if not twilio_client or not TWILIO_PHONE:
+        return SMSResponse(
+            success=False,
+            error="SMS service is not configured. Twilio credentials missing.",
+            timestamp=datetime.utcnow().isoformat()
+        )
+    
+    try:
+        # Validate phone number format (basic E.164 validation)
+        if not request.phone.startswith("+"):
+            return SMSResponse(
+                success=False,
+                error="Phone number must be in E.164 format (e.g., +91XXXXXXXXXX)",
+                timestamp=datetime.utcnow().isoformat()
+            )
+        
+        # Send SMS using Twilio
+        message = twilio_client.messages.create(
+            body=request.message,  # Unicode content supported
+            from_=TWILIO_PHONE,
+            to=request.phone
+        )
+        
+        print(f"✅ SMS sent successfully to {request.phone}")
+        print(f"   Message SID: {message.sid}")
+        print(f"   Message: {request.message}")
+        
+        return SMSResponse(
+            success=True,
+            message_sid=message.sid,
+            timestamp=datetime.utcnow().isoformat()
+        )
+    
+    except Exception as e:
+        error_msg = str(e)
+        print(f"❌ Failed to send SMS to {request.phone}: {error_msg}")
+        
+        return SMSResponse(
+            success=False,
+            error=f"SMS sending failed: {error_msg}",
+            timestamp=datetime.utcnow().isoformat()
+        )
+
+
+@app.post("/api/send-bulk-sms")
+def send_bulk_sms(phones: List[str], message: str):
+    """
+    Send SMS alert to multiple workers.
+    
+    Request body:
+    {
+        "phones": ["+91XXXXXXXXXX", "+91YYYYYYYYYY"],
+        "message": "আজি কাম আছে"
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "sent": 2,
+        "failed": 0,
+        "results": [
+            {"phone": "+91XXXXXXXXXX", "success": true, "message_sid": "SM..."},
+            ...
+        ]
+    }
+    """
+    
+    if not phones or not message:
+        return {
+            "success": False,
+            "error": "Phones list and message are required"
+        }
+    
+    if not twilio_client or not TWILIO_PHONE:
+        return {
+            "success": False,
+            "error": "SMS service is not configured"
+        }
+    
+    results = []
+    sent_count = 0
+    failed_count = 0
+    
+    for phone in phones:
+        try:
+            msg = twilio_client.messages.create(
+                body=message,
+                from_=TWILIO_PHONE,
+                to=phone
+            )
+            results.append({
+                "phone": phone,
+                "success": True,
+                "message_sid": msg.sid
+            })
+            sent_count += 1
+            print(f"✅ SMS sent to {phone}")
+        except Exception as e:
+            results.append({
+                "phone": phone,
+                "success": False,
+                "error": str(e)
+            })
+            failed_count += 1
+            print(f"❌ Failed to send SMS to {phone}: {e}")
+    
+    return {
+        "success": True,
+        "sent": sent_count,
+        "failed": failed_count,
+        "total": len(phones),
+        "results": results,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
 
 
 

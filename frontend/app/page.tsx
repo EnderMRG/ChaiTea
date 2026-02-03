@@ -8,7 +8,7 @@ import {
   Leaf,
   TrendingUp,
   Zap,
-  Users,
+  Play,
   LineChart,
   Shield,
   Gauge,
@@ -35,10 +35,10 @@ export default function HomePage() {
         'Automated environmental management with precise temperature and humidity control for ideal tea growth conditions.',
     },
     {
-      icon: Users,
-      title: 'Plucker Analytics',
+      icon: Play,
+      title: 'Future Actions Simulator',
       description:
-        'Track basket production per plucker, monitor efficiency metrics, and optimize harvest scheduling in real-time.',
+        'Simulate various farming actions and predict their outcomes using machine learning models to optimize yield and quality.',
     },
     {
       icon: TrendingUp,
@@ -55,10 +55,10 @@ export default function HomePage() {
   ];
 
   const stats = [
-    { label: 'Real-time Sensors', value: '20+' },
-    { label: 'AI Analysis Models', value: '5' },
-    { label: 'Data Points Daily', value: '10K+' },
-    { label: 'Accuracy Rate', value: '98%' },
+    { label: 'Real-time Sensors', value: '5' },
+    { label: 'Machine Learning Models', value: '4' },
+    { label: 'Data Points Daily', value: '50K' },
+    { label: 'Languages Supported', value: '2' },
   ];
 
   return (
@@ -126,6 +126,18 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Featured Card Section */}
+      <section className="py-12">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <Card className="overflow-hidden h-96 bg-cover bg-center relative" style={{backgroundImage: `linear-gradient(135deg, rgba(34,197,94,0.8), rgba(22,163,74,0.6)), url('https://ik.imagekit.io/0hygozmgt/t.jpg?updatedAt=1769630506456')`}}>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
+              <h3 className="text-3xl font-bold text-white mb-4">Premium Tea Cultivation</h3>
+              <p className="text-lg text-white/90 max-w-2xl">Optimize every leaf with AI-powered insights and real-time monitoring</p>
+            </div>
+          </Card>
         </div>
       </section>
 
@@ -253,7 +265,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="mt-8 border-t border-border pt-8 text-center text-sm text-muted-foreground">
-            <p>&copy; 2024 CHAI-NET. All rights reserved.</p>
+            <p>&copy;CHAI-NET. By BBZ.</p>
           </div>
         </div>
       </footer>

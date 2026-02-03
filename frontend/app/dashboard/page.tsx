@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Leaf, Menu, X } from 'lucide-react';
+import { Leaf, Menu, X, Send } from 'lucide-react';
 import CultivationIntelligence from '@/components/dashboard/cultivation-intelligence';
 import LeafQualityScanner from '@/components/dashboard/leaf-quality-scanner';
 import FarmerActionSimulator from '@/components/dashboard/farmer-action-simulator';
@@ -15,11 +15,47 @@ import AccountSettings from '@/components/dashboard/account-settings';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { LanguageToggle } from '@/components/language-toggle';
 import { useLanguage } from '@/context/LanguageContext';
+import { apiClient } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState('cultivation');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sendingAlert, setSendingAlert] = useState(false);
   const { t } = useLanguage();
+  const { toast } = useToast();
+
+  const handleSendAlert = async () => {
+    setSendingAlert(true);
+    try {
+      const response = await apiClient.post('/api/send-sms', {
+        phone: '+917002168639',
+        message: 'আজকে কাজ আছে',
+      });
+
+      if (response.success) {
+        toast({
+          title: 'Success',
+          description: 'Worker alert sent successfully!',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: response.error || 'Failed to send alert',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error sending alert:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to send worker alert',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingAlert(false);
+    }
+  };
 
   const tabs = [
     {
@@ -90,6 +126,16 @@ export default function DashboardPage() {
                   <div className="text-xs opacity-75 mt-1">{tab.description}</div>
                 </button>
               ))}
+              <button
+                onClick={handleSendAlert}
+                disabled={sendingAlert}
+                className="w-full mt-4 flex items-center gap-2 px-4 py-3 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                <Send className="h-4 w-4" />
+                <span className="font-medium">
+                  {sendingAlert ? 'Sending...' : 'Send Worker Alert'}
+                </span>
+              </button>
             </nav>
 
             <div className="p-4 border-t border-border">
